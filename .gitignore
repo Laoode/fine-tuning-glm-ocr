@@ -8,6 +8,10 @@ wheels/
 
 # data
 raw_data/cord-v2
+raw_data/expressexpense
+raw_data/nanonets
+raw_data/sroie
+raw_data/uniquedata
 
 # Virtual environments
 .venv
