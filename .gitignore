@@ -6,6 +6,11 @@ dist/
 wheels/
 *.egg-info
 
+# General
+.DS_Store
+.AppleDouble
+.LSOverride
+
 # data
 raw_data/cord-v2
 raw_data/expressexpense
@@ -14,5 +19,24 @@ raw_data/sroie
 raw_data/uniquedata
 
 # Virtual environments
-.venv
 .env
+.venv
+*.log
+.log
+*.pyc
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+trash/
+sample_data/
+logs/
+.vscode
+
+# Test script
+.coverage
+
+# Logs
+pids/
+logs/
