@@ -1,0 +1,7 @@
+[project]
+name = "fine-tuning-glm-ocr"
+version = "0.1.0"
+description = "Fine-tuning GLM-OCR for Receipt Extraction"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = ["transformers", "datasets", "oxenai", "kagglehub"]
