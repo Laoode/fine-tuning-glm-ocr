@@ -1,7 +1,22 @@
 [project]
 name = "fine-tuning-glm-ocr"
 version = "0.1.0"
-description = "Fine-tuning GLM-OCR for Receipt Extraction"
+description = "Fine-tuning GLM-OCR for Receipt Extraction with RECIPE-DB (RECeipt Image Processing & Extraction DataBase)"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = ["transformers", "datasets", "oxenai", "kagglehub", "python-dotenv"]
+dependencies = [
+    "transformers", 
+    "datasets", 
+    "oxenai", 
+    "kagglehub", 
+    "python-dotenv", 
+    "Pillow", 
+    "openai", 
+    "json_repair", 
+    "pyarrow", 
+    "roboflow", 
+    "Pillow", 
+    "pillow-heif",
+    "fiftyone",
+    "label-studio"
+]

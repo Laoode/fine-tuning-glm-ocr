@@ -17,6 +17,17 @@ raw_data/expressexpense
 raw_data/nanonets
 raw_data/sroie
 raw_data/uniquedata
+raw_data/pinterest
+raw_data/roboflow
+raw_data/e_receipt
+raw_data/threads
+
+# oxen
+.oxen/
+.oxenignore
+
+# data processed
+LLaMA-Factory/data/
 
 # Virtual environments
 .env
@@ -33,6 +44,9 @@ trash/
 sample_data/
 logs/
 .vscode
+
+# System os
+oxen-linux-x86_64.deb
 
 # Test script
 .coverage
