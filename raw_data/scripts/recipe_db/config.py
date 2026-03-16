@@ -132,6 +132,11 @@ SOURCE_CONFIGS = [
         "test_ratio": 0.05,
     },
 ]
+# name: threads
+# prefix: threx
+# path: RAW_DATA_DIR / threads
+# limit: None # 74 total → take all
+# test_ratio: 0.134
 
 # ─── GLM-OCR ──────────────────────────────────────────────────────────────────
 # Per GLM-OCR docs: predefined prompt for raw text extraction
