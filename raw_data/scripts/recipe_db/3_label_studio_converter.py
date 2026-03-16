@@ -10,6 +10,9 @@ What it does:
   EXPORT mode (before review):
     1. Reads labels/*.json + images/*.jpg per split
     2. Generates Label Studio tasks.json (importable into Label Studio)
+       - Images referenced via local file serving (relative to PROJECT_ROOT)
+       - Tasks exported WITHOUT pre-filled annotations so they appear in labeling queue
+       - JSON pre-populated via predictions (editable by reviewer)
     3. Generates labeling_config.xml (paste into Label Studio project)
     4. Generates VERIFY_REPORT.md summarizing what needs checking
 
@@ -21,16 +24,19 @@ What it does:
 
 Label Studio setup (one-time):
   pip install label-studio
+
   LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true \\
-  LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/ \\
+  LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/path/to/fine-tuning-glm-ocr \\
   label-studio start --port 8081
 
   Then in Label Studio:
     1. Create new project
-    2. Settings → Labeling Interface → paste labeling_config.xml content
-    3. Import → upload tasks.json
-    4. Review each task (image + OCR + JSON)
-    5. Export → JSON → save as label_studio_export.json
+    2. Settings → Cloud Storage → Add Source Storage → Local Files
+       Absolute local path: /path/to/fine-tuning-glm-ocr
+    3. Settings → Labeling Interface → paste labeling_config.xml content
+    4. Import → upload tasks.json
+    5. Review each task (image + OCR + JSON)
+    6. Export → JSON → save as label_studio_export.json
 
 Usage:
   # Export tasks for Label Studio
@@ -79,6 +85,9 @@ VERIFY_REPORT_MD    = LS_DIR / "VERIFY_REPORT.md"
 # ─── Label Studio Config XML ──────────────────────────────────────────────────
 # Layout: image on top, OCR text and JSON editor side by side below.
 # User edits the JSON textarea to correct extraction errors.
+#
+# NOTE: OCR text is pre-populated via $ocr_text in data (read-only display).
+#       JSON is pre-populated via predictions (editable by reviewer).
 LABELING_CONFIG = """<View>
   <Style>
     .main { display: flex; flex-direction: column; gap: 12px; }
@@ -107,15 +116,7 @@ LABELING_CONFIG = """<View>
       <!-- Left: raw OCR text (read-only reference) -->
       <View className="col">
         <Header value="OCR Text (GLM-OCR output — read only)" />
-        <TextArea
-          name="ocr_text"
-          toName="image"
-          placeholder="OCR text"
-          rows="30"
-          maxSubmissions="1"
-          editable="false"
-          perRegion="false"
-        />
+        <Text name="ocr_display" value="$ocr_text" />
       </View>
 
       <!-- Right: editable KIE JSON -->
@@ -189,13 +190,24 @@ def label_to_ls_task(
     """
     Build one Label Studio task dict.
 
-    Image is served via Label Studio's local file serving.
-    Run Label Studio with:
-      LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true
-      LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/
+    Key design decisions:
+      - Image served via Label Studio local file serving
+        Path is RELATIVE to LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT
+        e.g. if DOCUMENT_ROOT=/teamspace/studios/this_studio/fine-tuning-glm-ocr
+        then path = "LLaMA-Factory/data/recipe_db/train/images/cord_GAMBAR_100.jpg"
+      - NO pre-filled annotations → task appears in labeling queue as "unlabeled"
+      - JSON pre-populated via `predictions` (editable, auto-loaded in UI)
+      - OCR text in `data.ocr_text` for the read-only Text display
     """
-    # Local file serving URL — absolute path
-    image_url = f"/data/local-files/?d={img_path.as_posix()}"
+    # Local file serving: path relative to PROJECT_ROOT (= DOCUMENT_ROOT)
+    try:
+        rel_path = img_path.relative_to(cfg.PROJECT_ROOT)
+    except ValueError:
+        # Fallback: use absolute path (less reliable)
+        rel_path = img_path
+        logger.warning(f"[{stem}] Image not under PROJECT_ROOT, using absolute path")
+
+    image_url = f"/data/local-files/?d={rel_path.as_posix()}"
 
     # OCR text
     ocr_text = ""
@@ -223,17 +235,11 @@ def label_to_ls_task(
             "stem":      stem,
             "split":     split,
         },
-        "annotations": [
+        # NO "annotations" key → Label Studio treats this as unlabeled
+        # Pre-populate JSON via predictions so reviewer sees it pre-filled
+        "predictions": [
             {
-                "id":     task_id * 1000,
                 "result": [
-                    {
-                        "id":        f"ocr_{task_id}",
-                        "type":      "textarea",
-                        "from_name": "ocr_text",
-                        "to_name":   "image",
-                        "value":     {"text": [ocr_text]}
-                    },
                     {
                         "id":        f"json_{task_id}",
                         "type":      "textarea",
@@ -251,7 +257,6 @@ def label_to_ls_task(
                 ]
             }
         ],
-        "predictions": []
     }
 
 # ─── Schema Validation ────────────────────────────────────────────────────────
@@ -367,20 +372,28 @@ def run_export(split_filter: Optional[str]) -> None:
     {LABELING_CONFIG_XML}
     {VERIFY_REPORT_MD}
 
-  Setup Label Studio (one-time):
-    pip install label-studio
-
+  Setup Label Studio:
     LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true \\
-    LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/ \\
+    LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT={cfg.PROJECT_ROOT} \\
     label-studio start --port 8081
 
-  In Label Studio browser (http://localhost:8081):
+    NOTE: DOCUMENT_ROOT must be set to PROJECT_ROOT:
+      {cfg.PROJECT_ROOT}
+
+    Image paths in tasks.json are RELATIVE to this root, e.g.:
+      /data/local-files/?d=LLaMA-Factory/data/recipe_db/train/images/xxx.jpg
+
+  In Label Studio browser:
     1. Create new project → give it a name
-    2. Settings → Labeling Interface → Code
+    2. Settings → Cloud Storage → Add Source Storage → Local Files
+       Absolute local path: {cfg.PROJECT_ROOT}
+    3. Settings → Labeling Interface → Code
        Paste content of: {LABELING_CONFIG_XML}
-    3. Import → Upload Files → select: {TASKS_FILE}
-    4. Review each task, edit JSON if needed, set verdict
-    5. Export → JSON-MIN → save as label_studio_export.json
+    4. Import → Upload Files → select: {TASKS_FILE}
+    5. Click "Label All Tasks" to start reviewing
+    6. Each task shows: image + OCR text + pre-filled JSON
+    7. Edit JSON if needed, set verdict, click Submit
+    8. Export → JSON-MIN → save as label_studio_export.json
 
   After review, import corrections:
     python 3_label_studio_converter.py --mode import \\
