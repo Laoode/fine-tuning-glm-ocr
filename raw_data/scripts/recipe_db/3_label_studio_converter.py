@@ -461,10 +461,22 @@ def _generate_report(stats: Dict, issues_log: List[Dict]) -> None:
 
 # ─── Import Mode ──────────────────────────────────────────────────────────────
 
+SKIPPED_FILE = LS_DIR / "skipped.json"
+
 def run_import(export_file: str) -> None:
     """
     Import corrected annotations from Label Studio export JSON.
-    Overwrites labels/*.json with corrected versions.
+    Handles both JSON and JSON-MIN export formats.
+
+    Behavior per verdict:
+      - "correct"   → write JSON to labels/*.json (confirms Gemini output is good)
+      - "corrected" → write edited JSON to labels/*.json (overwrites Gemini output)
+      - "skip"      → record in skipped.json for exclusion in step 4 (final formatter)
+                       label file is NOT modified
+
+    Tasks without annotations (not yet reviewed) are ignored silently.
+
+    skipped.json is CUMULATIVE — re-importing adds to existing skips.
     """
     export_path = Path(export_file)
     if not export_path.exists():
@@ -474,51 +486,78 @@ def run_import(export_file: str) -> None:
     tasks = json.loads(export_path.read_text(encoding="utf-8"))
     logger.info(f"Loading {len(tasks)} tasks from {export_path}")
 
-    updated   = 0
-    skipped   = 0
-    errors    = 0
-    changed   = 0
+    # Load existing skipped list (cumulative across imports)
+    skipped_list: List[Dict] = []
+    if SKIPPED_FILE.exists():
+        try:
+            skipped_list = json.loads(SKIPPED_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            skipped_list = []
+    skipped_stems = {s["stem"] for s in skipped_list}
+
+    updated       = 0
+    skipped_count = 0
+    no_annotation = 0
+    errors        = 0
+    changed       = 0
 
     for task in tasks:
-        data  = task.get("data", {})
+        # ── Extract stem, split, verdict, json_text ──
+        # Handle both JSON-MIN (flat) and JSON (nested) formats
+
+        data = task.get("data", task)  # JSON-MIN puts data fields at top level
+
         stem  = data.get("stem", "")
         split = data.get("split", "")
 
         if not stem or not split:
             logger.warning(f"Task missing stem/split metadata, skipping: {task.get('id')}")
-            skipped += 1
+            no_annotation += 1
             continue
 
-        # Find the annotation with label_json result
-        annotations = task.get("annotations", [])
-        if not annotations:
-            logger.warning(f"[{stem}] No annotation, skipping")
-            skipped += 1
-            continue
-
-        # Use the last annotation (most recent review)
-        ann = annotations[-1]
-        results = ann.get("result", [])
-
-        # Check verdict
-        verdict = ""
+        verdict   = ""
         json_text = ""
-        for r in results:
-            if r.get("from_name") == "verdict":
-                choices = r.get("value", {}).get("choices", [])
-                verdict = choices[0] if choices else ""
-            if r.get("from_name") == "label_json":
-                texts = r.get("value", {}).get("text", [])
-                json_text = texts[0] if texts else ""
+
+        # Format 1: JSON-MIN (flat) — fields directly in task
+        if "verdict" in task or "label_json" in task:
+            verdict   = task.get("verdict", "")
+            json_text = task.get("label_json", "")
+
+        # Format 2: JSON (nested) — fields in annotations[].result[]
+        elif "annotations" in task:
+            annotations = task.get("annotations", [])
+            if not annotations:
+                no_annotation += 1
+                continue
+
+            ann = annotations[-1]  # most recent
+            results = ann.get("result", [])
+
+            for r in results:
+                if r.get("from_name") == "verdict":
+                    choices = r.get("value", {}).get("choices", [])
+                    verdict = choices[0] if choices else ""
+                if r.get("from_name") == "label_json":
+                    texts = r.get("value", {}).get("text", [])
+                    json_text = texts[0] if texts else ""
+        else:
+            # No annotation data at all
+            no_annotation += 1
+            continue
+
+        # ── Handle verdict ──
 
         if verdict == "skip":
-            logger.info(f"[{stem}] Verdict: skip — not imported")
-            skipped += 1
+            if stem not in skipped_stems:
+                skipped_list.append({"stem": stem, "split": split})
+                skipped_stems.add(stem)
+            logger.info(f"[{stem}] Verdict: SKIP — marked for exclusion")
+            skipped_count += 1
             continue
 
         if not json_text.strip():
             logger.warning(f"[{stem}] Empty JSON annotation, skipping")
-            skipped += 1
+            no_annotation += 1
             continue
 
         # Parse the corrected JSON
@@ -533,7 +572,6 @@ def run_import(export_file: str) -> None:
         issues = validate_label(corrected)
         if issues:
             logger.warning(f"[{stem}] Schema issues in corrected annotation: {issues}")
-            # Don't block import — user may have intentionally simplified
 
         # Compare with current label
         lbl_path = cfg.labels_dir(split) / f"{stem}.json"
@@ -547,21 +585,43 @@ def run_import(export_file: str) -> None:
             changed += 1
             logger.info(f"[{stem}] Updated (verdict={verdict})")
         else:
-            logger.debug(f"[{stem}] Unchanged")
+            logger.debug(f"[{stem}] Unchanged (verdict={verdict})")
 
         # Write corrected label
         lbl_path.parent.mkdir(parents=True, exist_ok=True)
         lbl_path.write_text(new_json, encoding="utf-8")
         updated += 1
 
+        # Remove from skipped if previously skipped but now reviewed
+        if stem in skipped_stems:
+            skipped_list = [s for s in skipped_list if s["stem"] != stem]
+            skipped_stems.discard(stem)
+            logger.info(f"[{stem}] Removed from skip list (now reviewed)")
+
+    # Save skipped.json
+    SKIPPED_FILE.write_text(
+        json.dumps(skipped_list, ensure_ascii=False, indent=2),
+        encoding="utf-8"
+    )
+
     logger.info(f"""
 {'='*55}
   Label Studio Import Complete
 {'='*55}
-  Imported  : {updated}
-  Changed   : {changed}
-  Skipped   : {skipped}
-  Errors    : {errors}
+  Imported (correct/corrected) : {updated}
+  Changed (edits applied)      : {changed}
+  Skipped (marked for exclusion): {skipped_count}
+  Not yet reviewed             : {no_annotation}
+  Errors                       : {errors}
+
+  Skip list: {SKIPPED_FILE}
+    Total skipped stems: {len(skipped_list)}
+
+  Next steps:
+    - Continue reviewing in Label Studio
+    - Re-export and re-import as needed
+    - Run step 4 (final formatter) — skipped stems
+      will be automatically excluded
 {'='*55}
 """)
 
