@@ -24,6 +24,22 @@ tree -L 3 -I '*.png|*.jpg|*.jpeg|.DS_Store|.git|__pycache__'
 │   │   │   └── recipe_db.json
 │   │   └── scripts/
 │   │   │   └── main.py
+│   ├── checkpoints
+│   │   └── recipe_db
+│   │       ├── kie_processor.json
+│   │       └── ocr_extractor.json
+│   ├── label_studio
+│   │   ├── VERIFY_REPORT.md
+│   │   ├── batch
+│   │   │   └── 0-94-fix.json
+│   │   ├── labeling_config.xml
+│   │   ├── skipped.json
+│   │   └── tasks.json
+│   ├── logs
+│   │   └── recipe_db
+│   │       ├── 1_ocr_extractor.log
+│   │       ├── 2_kie_processor.log
+│   │       └── 3_label_studio_converter.log
 │   ├── raw_data/
 │   │   ├── cord-v2/
 │   │   │   └── images/
@@ -78,6 +94,9 @@ tree -L 3 -I '*.png|*.jpg|*.jpeg|.DS_Store|.git|__pycache__'
     └── light_on_ocr.py
 
 
+│   │   └── threads/
+│   │       └──  GAMBAR_0.JPG, GAMBAR_1.JPG, ...
+
 --- Statistik Dataset ---
 CORD-V2: 999
 E-Receipt: 53
@@ -104,31 +123,11 @@ echo "--------------------------"
 echo "TOTAL SEMUA: $(find raw_data -type f \( -iname "*.png" -o -iname "*.jpg" \) | wc -l)"
 ```
 
-(fine-tuning-glm-ocr) ⚡ main ~/fine-tuning-glm-ocr oxen init
-🐂 repository initialized at: "/teamspace/studios/this_studio/fine-tuning-glm-ocr"
-
-    📖 If this is your first time using Oxen, check out the CLI docs at:
-            https://docs.oxen.ai/getting-started/cli
-
-    💬 For more support, or to chat with the Oxen team, join our Discord:
-            https://discord.gg/s3tBEn7Ptg
-
-(fine-tuning-glm-ocr) ⚡ main ~/fine-tuning-glm-ocr oxen config --auth hub.oxen.ai SFMyNTY.g2gDbQAAAC9hcGlfa2V5X3YxOjdlNGUzMmZlLTE0NGItNDRiZC1iYjkwLWEzZWYwZWRmOGQ0Ym4GAACEAK-cAWIAAVGA.NYyoo5RfIKwGZArCkE41wc64jBQe0oi-pE17metrDpo
-Authentication token set for host: hub.oxen.ai
-(fine-tuning-glm-ocr) ⚡ main ~/fine-tuning-glm-ocr 
-
-
-vllm serve zai-org/GLM-OCR --port 8000 \
-    --speculative-config '{"method":"mtp","num_speculative_tokens":1}' \
-    --allowed-local-media-path 
-
-==================================================
-  RECIPE-DB KIE Processor Status
-==================================================
-  Today (2026-03-04):
-    API calls used  : 219 / 240
-    Remaining today : 21
-  All time:
-    Processed       : 219
-    Failed          : 21
-==================================================
+Running stage 3:
+```
+LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true \
+LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/teamspace/studios/this_studio/fine-tuning-glm-ocr \
+CSRF_TRUSTED_ORIGINS=https://8081-01kjd8jvd2eprsmsg5x8mq4g39.cloudspaces.litng.ai,https://*.cloudspaces.litng.ai \
+DJANGO_CSRF_TRUSTED_ORIGINS=https://8081-01kjd8jvd2eprsmsg5x8mq4g39.cloudspaces.litng.ai,https://*.cloudspaces.litng.ai \
+uv run label-studio start --port 8081
+```
