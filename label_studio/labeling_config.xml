@@ -1,0 +1,59 @@
+<View>
+  <Style>
+    .main { display: flex; flex-direction: column; gap: 12px; }
+    .row  { display: flex; gap: 12px; }
+    .col  { flex: 1; }
+    label { font-weight: bold; font-size: 13px; color: #555; }
+    .meta { font-size: 12px; color: #888; padding: 4px 0; }
+  </Style>
+
+  <View className="main">
+
+    <!-- Header: filename and source info -->
+    <View>
+      <Text name="meta_info" value="$meta_info" />
+    </View>
+
+    <!-- Receipt image -->
+    <View>
+      <Header value="Receipt Image" />
+      <Image name="image" value="$image" maxWidth="700px" />
+    </View>
+
+    <!-- OCR text + JSON editor side by side -->
+    <View className="row">
+
+      <!-- Left: raw OCR text (read-only reference) -->
+      <View className="col">
+        <Header value="OCR Text (GLM-OCR output — read only)" />
+        <Text name="ocr_display" value="$ocr_text" />
+      </View>
+
+      <!-- Right: editable KIE JSON -->
+      <View className="col">
+        <Header value="Extracted JSON (edit to correct)" />
+        <TextArea
+          name="label_json"
+          toName="image"
+          placeholder="Extracted JSON"
+          rows="30"
+          maxSubmissions="1"
+          editable="true"
+          perRegion="false"
+        />
+      </View>
+
+    </View>
+
+    <!-- Review verdict -->
+    <View>
+      <Header value="Review verdict" />
+      <Choices name="verdict" toName="image" choice="single-radio">
+        <Choice value="correct"     alias="correct"     />
+        <Choice value="corrected"   alias="corrected"   />
+        <Choice value="skip"        alias="skip"        />
+      </Choices>
+    </View>
+
+  </View>
+</View>
