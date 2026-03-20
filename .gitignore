@@ -22,6 +22,12 @@ raw_data/roboflow
 raw_data/e_receipt
 raw_data/threads
 
+# label studio
+label_studio/
+
+# Model checkpoints (heavy files)
+checkpoints/
+
 # oxen
 .oxen/
 .oxenignore
