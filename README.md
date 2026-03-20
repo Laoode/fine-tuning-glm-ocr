@@ -1,8 +1,9 @@
 # RECIPE-DB (RECeipt Image Processing & Extraction DataBase)
 
 ## Structure project
-```
+```bash
 tree -L 3 -I '*.png|*.jpg|*.jpeg|.DS_Store|.git|__pycache__'
+```
 ```
 .
 ├── fine-tuning-glm-ocr
@@ -82,6 +83,8 @@ tree -L 3 -I '*.png|*.jpg|*.jpeg|.DS_Store|.git|__pycache__'
 │   │   │   │   └──img/GAMBAR_0.JPG, GAMBAR_1.JPG, ...
 │   │   │   └── train/
 │   │   │       └──img/GAMBAR_0.JPG, GAMBAR_1.JPG, ...
+│   │   ├── threads/
+│   │   │   └──  GAMBAR_0.JPG, GAMBAR_1.JPG, ...
 │   │   └── uniquedata/
 │   │       └──  images/GAMBAR_0.JPG, GAMBAR_1.JPG, ...
 │   └── uv.lock
@@ -92,11 +95,8 @@ tree -L 3 -I '*.png|*.jpg|*.jpeg|.DS_Store|.git|__pycache__'
     │   ├── extract.py
     │   └── ocr.py
     └── light_on_ocr.py
-
-
-│   │   └── threads/
-│   │       └──  GAMBAR_0.JPG, GAMBAR_1.JPG, ...
-
+```
+```
 --- Statistik Dataset ---
 CORD-V2: 999
 E-Receipt: 53
@@ -108,8 +108,9 @@ SROIE: 973
 Unique Data: 20
 --------------------------
 TOTAL SEMUA: 5480
-
 ```
+
+```bash
 echo "--- Statistik Dataset ---"
 echo "CORD-V2: $(find raw_data/cord-v2/images -type f \( -iname "*.png" -o -iname "*.jpg" \) | wc -l)"
 echo "E-Receipt: $(find raw_data/e_receipt/images -type f \( -iname "*.png" -o -iname "*.jpg" \) | wc -l)"
@@ -123,11 +124,18 @@ echo "--------------------------"
 echo "TOTAL SEMUA: $(find raw_data -type f \( -iname "*.png" -o -iname "*.jpg" \) | wc -l)"
 ```
 
-Running stage 3:
-```
+Running Label Studio:
+```bash
 LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true \
 LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/teamspace/studios/this_studio/fine-tuning-glm-ocr \
 CSRF_TRUSTED_ORIGINS=https://8081-01kjd8jvd2eprsmsg5x8mq4g39.cloudspaces.litng.ai,https://*.cloudspaces.litng.ai \
 DJANGO_CSRF_TRUSTED_ORIGINS=https://8081-01kjd8jvd2eprsmsg5x8mq4g39.cloudspaces.litng.ai,https://*.cloudspaces.litng.ai \
 uv run label-studio start --port 8081
+```
+
+Import Annotations:
+```bash
+uv run raw_data/scripts/recipe_db/3_label_studio_converter.py \
+--mode import \
+--file label_studio/batch/111-141.json 
 ```
