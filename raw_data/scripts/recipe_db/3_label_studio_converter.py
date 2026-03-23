@@ -62,6 +62,12 @@ from typing import Dict, List, Optional, Tuple
 sys.path.insert(0, str(Path(__file__).parent))
 import config as cfg
 
+try:
+    from json_repair import repair_json
+    JSON_REPAIR_AVAILABLE = True
+except ImportError:
+    JSON_REPAIR_AVAILABLE = False
+
 # ─── Logging ──────────────────────────────────────────────────────────────────
 cfg.LOGS_DIR.mkdir(parents=True, exist_ok=True)
 logging.basicConfig(
@@ -147,6 +153,53 @@ LABELING_CONFIG = """<View>
 
   </View>
 </View>"""
+
+# ─── JSON Parsing (with repair fallback) ──────────────────────────────────────
+
+def parse_annotation_json(raw: str, stem: str) -> Optional[Dict]:
+    """
+    Parse JSON from Label Studio annotation with repair fallback.
+
+    Label Studio TextArea edits often introduce:
+      - Trailing commas before ] or }
+      - Missing closing brackets (truncated edits)
+      - Unescaped characters
+
+    3-layer approach (same pattern as 2_kie_processor.py):
+      Layer 1: json.loads (strict)
+      Layer 2: json_repair fallback
+      Layer 3: return None with diagnostics
+    """
+    content = raw.strip()
+    if not content:
+        return None
+
+    # Layer 1: strict parse
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError as e1:
+        logger.warning(f"[{stem}] json.loads failed: {e1} — trying json_repair")
+
+    # Layer 2: json_repair
+    if JSON_REPAIR_AVAILABLE:
+        try:
+            result = repair_json(content, return_objects=True)
+            if isinstance(result, dict):
+                logger.info(f"[{stem}] json_repair: recovered successfully")
+                return result
+            else:
+                logger.warning(f"[{stem}] json_repair returned {type(result).__name__}, expected dict")
+        except Exception as e2:
+            logger.warning(f"[{stem}] json_repair also failed: {e2}")
+    else:
+        logger.warning(f"[{stem}] json_repair not installed — pip install json-repair")
+
+    # Layer 3: give up
+    logger.error(
+        f"[{stem}] All JSON parse layers failed. "
+        f"First 200 chars: {content[:200]}"
+    )
+    return None
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -485,6 +538,7 @@ def run_import(export_file: str) -> None:
 
     tasks = json.loads(export_path.read_text(encoding="utf-8"))
     logger.info(f"Loading {len(tasks)} tasks from {export_path}")
+    logger.info(f"json_repair: {'available ✓' if JSON_REPAIR_AVAILABLE else 'NOT installed'}")
 
     # Load existing skipped list (cumulative across imports)
     skipped_list: List[Dict] = []
@@ -500,6 +554,7 @@ def run_import(export_file: str) -> None:
     no_annotation = 0
     errors        = 0
     changed       = 0
+    repaired      = 0
 
     for task in tasks:
         # ── Extract stem, split, verdict, json_text ──
@@ -560,13 +615,17 @@ def run_import(export_file: str) -> None:
             no_annotation += 1
             continue
 
-        # Parse the corrected JSON
-        try:
-            corrected = json.loads(json_text)
-        except json.JSONDecodeError as e:
-            logger.error(f"[{stem}] Invalid JSON in annotation: {e}")
+        # Parse the corrected JSON (with repair fallback)
+        corrected = parse_annotation_json(json_text, stem)
+        if corrected is None:
             errors += 1
             continue
+
+        # Track if repair was needed (json.loads would have failed)
+        try:
+            json.loads(json_text.strip())
+        except json.JSONDecodeError:
+            repaired += 1
 
         # Validate schema
         issues = validate_label(corrected)
@@ -610,6 +669,7 @@ def run_import(export_file: str) -> None:
 {'='*55}
   Imported (correct/corrected) : {updated}
   Changed (edits applied)      : {changed}
+  Repaired (json_repair fixed) : {repaired}
   Skipped (marked for exclusion): {skipped_count}
   Not yet reviewed             : {no_annotation}
   Errors                       : {errors}
@@ -627,6 +687,11 @@ def run_import(export_file: str) -> None:
 
     if errors > 0:
         logger.warning(f"{errors} tasks had invalid JSON — check log for details")
+    if repaired > 0:
+        logger.info(
+            f"{repaired} tasks had malformed JSON (trailing commas, etc.) "
+            f"that were auto-repaired by json_repair"
+        )
 
 # ─── Report Mode ──────────────────────────────────────────────────────────────
 
