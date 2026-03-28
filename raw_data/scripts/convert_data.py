@@ -5,7 +5,7 @@ from pillow_heif import register_heif_opener
 # Agar Pillow bisa membaca file .heic
 register_heif_opener()
 
-SOURCE_DIR = "/teamspace/studios/this_studio/fine-tuning-glm-ocr/raw_data/threads"
+SOURCE_DIR = "/teamspace/studios/this_studio/fine-tuning-glm-ocr/raw_data/primary"
 EXTENSIONS = ('.jpg', '.jpeg', '.png', '.webp', '.heic', '.tiff', '.bmp')
 
 def convert_and_rename():
