@@ -21,6 +21,7 @@ raw_data/pinterest
 raw_data/roboflow
 raw_data/e_receipt
 raw_data/threads
+raw_data/primary/
 
 # label studio
 label_studio/
