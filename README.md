@@ -32,7 +32,7 @@ tree -L 3 -I '*.png|*.jpg|*.jpeg|.DS_Store|.git|__pycache__'
 │   ├── label_studio
 │   │   ├── VERIFY_REPORT.md
 │   │   ├── batch
-│   │   │   └── 0-94-fix.json
+│   │   │   └── 809-817.json
 │   │   ├── labeling_config.xml
 │   │   ├── skipped.json
 │   │   └── tasks.json
@@ -62,6 +62,8 @@ tree -L 3 -I '*.png|*.jpg|*.jpeg|.DS_Store|.git|__pycache__'
 │   │   │       └──images/GAMBAR_0.JPG, GAMBAR_1.JPG, ...
 │   │   └── pinterest/
 │   │   │   └──  images/GAMBAR_0.jpg, GAMBAR_1.jpg, ...
+│   │   └── primary/
+│   │   │   └──  GAMBAR_0.jpg, GAMBAR_1.jpg, ...
 │   │   ├── scripts/
 │   │   │   ├── convert_data.py
 │   │   │   ├── get_hf.py
@@ -104,7 +106,9 @@ Express Expense: 200
 Nanonets: 987
 Roboflow: 1746
 Pinterest: 502
+Primary: 65
 SROIE: 973
+Threads: 74
 Unique Data: 20
 --------------------------
 TOTAL SEMUA: 5480
@@ -118,7 +122,9 @@ echo "Express Expense: $(find raw_data/expressexpense/images -type f \( -iname "
 echo "Nanonets: $(find raw_data/nanonets/images -type f \( -iname "*.png" -o -iname "*.jpg" \) | wc -l)"
 echo "Roboflow: $(find raw_data/roboflow -type f \( -iname "*.png" -o -iname "*.jpg" \) | wc -l)"
 echo "Pinterest: $(find raw_data/pinterest -type f \( -iname "*.png" -o -iname "*.jpg" \) | wc -l)"
+echo "Primary: $(find raw_data/primary -type f \( -iname "*.png" -o -iname "*.jpg" \) | wc -l)"
 echo "SROIE: $(find raw_data/sroie -type f \( -iname "*.png" -o -iname "*.jpg" \) | wc -l)"
+echo "Threads: $(find raw_data/threads -type f \( -iname "*.png" -o -iname "*.jpg" \) | wc -l)"
 echo "Unique Data: $(find raw_data/uniquedata/images -type f \( -iname "*.png" -o -iname "*.jpg" \) | wc -l)"
 echo "--------------------------"
 echo "TOTAL SEMUA: $(find raw_data -type f \( -iname "*.png" -o -iname "*.jpg" \) | wc -l)"
@@ -137,5 +143,5 @@ Import Annotations:
 ```bash
 uv run raw_data/scripts/recipe_db/3_label_studio_converter.py \
 --mode import \
---file label_studio/batch/111-141.json 
+--file label_studio/batch/818-885-fixed.json 
 ```

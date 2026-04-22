@@ -54,7 +54,7 @@ LLM_MODEL       = os.getenv("LLM_MODEL", "gemini-3.1-pro-preview")
 LLM_API_KEY     = os.getenv("LLM_API_KEY", "")
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.0"))
 
-GLM_ENDPOINT = os.getenv("GLM_ENDPOINT", "http://localhost:8000/v1")
+GLM_ENDPOINT = os.getenv("GLM_ENDPOINT", "http://localhost:8080/v1")
 GLM_MODEL    = os.getenv("GLM_MODEL", "zai-org/GLM-OCR")
 
 OXEN_REMOTE     = os.getenv("OXEN_REMOTE", "https://hub.oxen.ai/Laoode/RECIPE-DB")
@@ -131,12 +131,34 @@ SOURCE_CONFIGS = [
         "limit":      None,   # 20 → take all
         "test_ratio": 0.05,
     },
+    {
+        "name":       "threads",
+        "prefix":     "threx",
+        "path":       RAW_DATA_DIR / "threads",
+        "exts":       ["*.JPG", "*.jpg", "*.jpeg", "*.png"],
+        "limit":      None,   # 74 → take all
+        "test_ratio": 0.05,
+    },
+    {
+        "name":       "primary",
+        "prefix":     "prima",
+        "path":       RAW_DATA_DIR / "primary",
+        "exts":       ["*.JPG", "*.jpg", "*.jpeg", "*.png"],
+        "limit":      None,   # 65 → take all
+        "test_ratio": 0.05,
+    },
 ]
 # name: threads
 # prefix: threx
 # path: RAW_DATA_DIR / threads
 # limit: None # 74 total → take all
-# test_ratio: 0.134
+# test_ratio: 0.05
+
+# name: primary
+# prefix: prima
+# path: RAW_DATA_DIR / primary
+# limit: None # 65 total → take all
+# test_ratio: 0.05
 
 # ─── GLM-OCR ──────────────────────────────────────────────────────────────────
 # Per GLM-OCR docs: predefined prompt for raw text extraction

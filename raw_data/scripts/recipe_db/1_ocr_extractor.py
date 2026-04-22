@@ -339,7 +339,7 @@ def run_pipeline(mode: str, source_filter: Optional[str]) -> None:
         logger.info(f"GLM-OCR server OK — models: {[m.id for m in models.data]}")
     except Exception as e:
         logger.error(f"Cannot reach GLM-OCR server at {cfg.GLM_ENDPOINT}: {e}")
-        logger.error("Start the server: vllm serve zai-org/GLM-OCR --port 8000 ...")
+        logger.error("Start the server: vllm serve zai-org/GLM-OCR --port 8080 ...")
         sys.exit(1)
 
     plan, ckpt = build_work_plan(mode, source_filter)
@@ -435,7 +435,7 @@ Examples:
   python 1_ocr_extractor.py --mode run --source cord
 
 Prerequisites:
-  vllm serve zai-org/GLM-OCR --port 8000 \\
+  vllm serve zai-org/GLM-OCR --port 8080 \\
     --speculative-config '{"method":"mtp","num_speculative_tokens":1}' \\
     --allowed-local-media-path /
         """,

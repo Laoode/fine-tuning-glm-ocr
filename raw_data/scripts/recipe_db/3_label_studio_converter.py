@@ -364,14 +364,36 @@ def validate_label(label: Dict) -> List[str]:
 
 # ─── Export Mode ──────────────────────────────────────────────────────────────
 
-def run_export(split_filter: Optional[str]) -> None:
+def run_export(split_filter: Optional[str], append: bool = False) -> None:
     """Export all labels as Label Studio tasks.json."""
     splits = ["train", "test"]
     if split_filter:
         splits = [split_filter]
 
-    all_tasks = []
-    task_id   = 1
+    # all_tasks = []
+    # task_id   = 1
+    # stats     = {"total": 0, "with_issues": 0, "missing_ocr": 0}
+    # issues_log: List[Dict] = []
+
+    existing_tasks: List[Dict] = []
+    existing_stems: set = set()
+    task_id = 1
+
+    if append and TASKS_FILE.exists():
+        try:
+            existing_tasks = json.loads(TASKS_FILE.read_text(encoding="utf-8"))
+            existing_stems = {t["data"]["stem"] for t in existing_tasks if "data" in t}
+            task_id = max((t["id"] for t in existing_tasks), default=0) + 1
+            logger.info(
+                f"Append mode: loaded {len(existing_tasks)} existing tasks "
+                f"(max id={task_id - 1}), will skip {len(existing_stems)} stems"
+            )
+        except Exception as e:
+            logger.warning(f"Could not load existing tasks.json: {e} — starting fresh")
+            existing_tasks, existing_stems, task_id = [], set(), 1
+
+    all_tasks = existing_tasks.copy()
+    new_count = 0
     stats     = {"total": 0, "with_issues": 0, "missing_ocr": 0}
     issues_log: List[Dict] = []
 
@@ -380,14 +402,20 @@ def run_export(split_filter: Optional[str]) -> None:
         logger.info(f"[{split}] {len(pairs)} label-image pairs found")
 
         for stem, img_path, ocr_path, lbl_path in pairs:
+            # ── Skip if already exported ──
+            if stem in existing_stems:
+                logger.debug(f"[{stem}] Already in tasks.json, skipping")
+                continue
+
             task = label_to_ls_task(task_id, stem, split, img_path, ocr_path, lbl_path)
             all_tasks.append(task)
+            new_count += 1
+            task_id += 1  
 
             stats["total"] += 1
             if not ocr_path.exists():
                 stats["missing_ocr"] += 1
 
-            # Validate schema
             try:
                 label = json.loads(lbl_path.read_text(encoding="utf-8"))
                 issues = validate_label(label)
@@ -398,11 +426,13 @@ def run_export(split_filter: Optional[str]) -> None:
                 stats["with_issues"] += 1
                 issues_log.append({"stem": stem, "split": split, "issues": [f"Parse error: {e}"]})
 
-            task_id += 1
+
+
+
 
     # Save tasks.json
     TASKS_FILE.write_text(json.dumps(all_tasks, ensure_ascii=False, indent=2), encoding="utf-8")
-    logger.info(f"\nExported {len(all_tasks)} tasks → {TASKS_FILE}")
+    logger.info(f"\nExported {len(all_tasks)} tasks total ({new_count} new) → {TASKS_FILE}")
 
     # Save labeling_config.xml
     LABELING_CONFIG_XML.write_text(LABELING_CONFIG, encoding="utf-8")
@@ -762,10 +792,16 @@ Examples:
         default=None,
         help="Path to Label Studio export JSON (required for --mode import)",
     )
+    parser.add_argument(
+        "--append",
+        action="store_true",
+        default=False,
+        help="Append new tasks to existing tasks.json instead of overwriting",
+    )
     args = parser.parse_args()
 
     if args.mode == "export":
-        run_export(args.split)
+        run_export(args.split, append=args.append)
     elif args.mode == "import":
         if not args.file:
             parser.error("--file is required for --mode import")
