@@ -143,5 +143,5 @@ Import Annotations:
 ```bash
 uv run raw_data/scripts/recipe_db/3_label_studio_converter.py \
 --mode import \
---file label_studio/batch/818-885-fixed.json 
+--file label_studio/fix-annotated/818-885-fixed.json
 ```
